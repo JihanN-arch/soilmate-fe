@@ -57,6 +57,8 @@ export type AngkaAtauRentang = number | Rentang | null;
 
 export type Ekonomi = {
   tersedia: boolean;
+  status?: "lengkap" | "pendapatan_saja" | "belum_tersedia" | string;
+  wilayah_harga?: string | null;
   harga_per_kg?: number | null;
   harga_produsen_per_kg?: number | null;
   produktivitas_kg_ha?: AngkaAtauRentang;
