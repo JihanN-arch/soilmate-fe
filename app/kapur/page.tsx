@@ -25,7 +25,7 @@ import {
 } from "@/lib/api";
 import { getAnonymousId } from "@/lib/anonymousId";
 import { rupiah, tanggal } from "@/lib/format";
-import { TEKSTUR_OPTIONS } from "@/lib/labels";
+import { labelTekstur, TEKSTUR_OPTIONS } from "@/lib/labels";
 import { DEFAULT_M2_PER_BATA, keM2, SatuanLuas } from "@/lib/luas";
 import { logEvent } from "@/lib/usability";
 
@@ -198,6 +198,28 @@ function KapurContent() {
   const perubahan = hasil ? normalPerubahan(hasil.perubahan_skor) : [];
   const catatan = hasil?.catatan ? (Array.isArray(hasil.catatan) ? hasil.catatan : [hasil.catatan]) : [];
   const keb = hasil?.kebutuhan_kapur;
+  const dml = hasil?.detail_ml ?? null;
+  const angka = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  const dosisMinimal = angka(dml?.dosis_penetral_al_ton_ha);
+  const alAwal = angka(dml?.al_dd_awal);
+  const alBaru = angka(dml?.al_dd_baru);
+  const lamaEfek = angka(dml?.estimasi_lama_efek_tahun);
+  const teksturDipakai = typeof dml?.tekstur_dipakai === "string" ? dml.tekstur_dipakai : null;
+  const fmtDosis = (v: number) => v.toLocaleString("id-ID", { maximumFractionDigits: 2 });
+  const luasDipakai = keb?.luas_lahan_m2 ?? null;
+  const rgOk = (r?: { min: number; max: number } | null) =>
+    r && Number.isFinite(r.min) && Number.isFinite(r.max) ? r : null;
+  const fmtRg = (r: { min: number; max: number }, satuan = "") =>
+    r.min === r.max ? `${rupiah(r.min)}${satuan}` : `${rupiah(r.min)} – ${rupiah(r.max)}${satuan}`;
+  const hargaRg = rgOk(keb?.harga_per_kg_rentang);
+  const biayaLahanRg = rgOk(keb?.perkiraan_biaya_rentang);
+  const biayaHaRg = rgOk(keb?.perkiraan_biaya_per_ha_rentang);
+  // cadangan untuk respons lama yang hanya punya satu angka
+  const biayaTunggal = !biayaLahanRg && !biayaHaRg && keb?.perkiraan_biaya != null ? keb.perkiraan_biaya : null;
+  const adaHarga = Boolean(hargaRg || biayaLahanRg || biayaHaRg || biayaTunggal != null);
+  const namaJenis = JENIS_KAPUR.find((j) => j.value === jenis)?.label ?? "kapur ini";
+  const kgLahan = (tonHa: number) =>
+    luasDipakai ? `${Math.round(tonHa * 1000 * (luasDipakai / 10000)).toLocaleString("id-ID")} kg` : null;
   const modeContoh = Boolean(hasil?.mode_contoh || hasil?.detail_ml?.metode === "contoh");
   // Catatan "ANGKA CONTOH ..." sudah diwakili label di atas; sisanya (mis. asumsi tekstur) ditampilkan sebagai daftar
   const catatanLain = catatan.filter((c) => !/^\s*angka contoh/i.test(c));
@@ -305,16 +327,108 @@ function KapurContent() {
             </div>
 
             {keb && (
-              <div className="text-sm">
-                <p className="mb-1 font-semibold text-forest-dark">Kebutuhan kapur</p>
-                <div className="flex justify-between py-1"><span className="text-forest-dark/70">Dosis</span><b>{keb.dosis_ton_ha} ton/ha</b></div>
-                {keb.total_kg != null && (
-                  <div className="flex justify-between py-1"><span className="text-forest-dark/70">Total untuk lahan Anda</span><b>{Math.round(keb.total_kg).toLocaleString("id-ID")} kg</b></div>
+              <div className="space-y-3 text-sm">
+                {/* Dosis minimal: menetralkan aluminium. Ini yang paling penting untuk petani. */}
+                {dosisMinimal != null && (
+                  <div className="rounded-xl border-2 border-[#3DA35D] bg-[#EEF7F0] p-3">
+                    <p className="text-xs font-semibold text-forest-dark/70">Kebutuhan minimal</p>
+                    <p className="font-display text-2xl font-bold text-forest-dark">
+                      {fmtDosis(dosisMinimal)} <span className="text-sm font-semibold">ton/ha</span>
+                    </p>
+                    {kgLahan(dosisMinimal) && (
+                      <p className="text-xs text-forest-dark/80">= {kgLahan(dosisMinimal)} untuk lahan Anda</p>
+                    )}
+                    <p className="mt-1 text-xs leading-relaxed text-forest-dark/70">
+                      Cukup untuk menetralkan aluminium yang meracuni akar. Mulai dari dosis ini kalau dana terbatas.
+                    </p>
+                    {hargaRg && (
+                      <p className="mt-1 text-xs font-semibold text-forest-dark">
+                        Perkiraan biaya:{" "}
+                        {fmtRg({
+                          min: dosisMinimal * 1000 * hargaRg.min * (luasDipakai ? luasDipakai / 10000 : 1),
+                          max: dosisMinimal * 1000 * hargaRg.max * (luasDipakai ? luasDipakai / 10000 : 1),
+                        })}
+                        {luasDipakai ? " untuk lahan Anda" : " per hektar"}
+                      </p>
+                    )}
+                  </div>
                 )}
-                {keb.perkiraan_biaya != null && (
-                  <div className="flex justify-between py-1"><span className="text-forest-dark/70">Perkiraan biaya</span><b>{rupiah(keb.perkiraan_biaya)}</b></div>
+
+                <div className={dosisMinimal != null ? "rounded-xl border border-gray-200 p-3" : ""}>
+                  <p className="text-xs font-semibold text-forest-dark/70">
+                    {dosisMinimal != null ? `Untuk mencapai pH ${hasil.ph_baru}` : "Kebutuhan kapur"}
+                  </p>
+                  <div className="flex justify-between py-1"><span className="text-forest-dark/70">Dosis</span><b>{fmtDosis(keb.dosis_ton_ha)} ton/ha</b></div>
+                  {keb.total_kg != null && (
+                    <div className="flex justify-between py-1"><span className="text-forest-dark/70">Total untuk lahan Anda</span><b>{Math.round(keb.total_kg).toLocaleString("id-ID")} kg</b></div>
+                  )}
+                </div>
+
+                {/* Perkiraan biaya (untuk dosis target) */}
+                <div className="rounded-xl bg-cream p-3">
+                  <p className="text-xs font-semibold text-forest-dark/70">Perkiraan biaya kapur</p>
+                  {adaHarga ? (
+                    <>
+                      {biayaLahanRg && (
+                        <div className="flex items-baseline justify-between gap-3 py-1">
+                          <span className="shrink-0 text-forest-dark/70">Untuk lahan Anda</span>
+                          <b className="text-right">{fmtRg(biayaLahanRg)}</b>
+                        </div>
+                      )}
+                      {biayaHaRg && (
+                        <div className="flex items-baseline justify-between gap-3 py-1">
+                          <span className="shrink-0 text-forest-dark/70">Per hektar</span>
+                          <b className="text-right">{fmtRg(biayaHaRg)}</b>
+                        </div>
+                      )}
+                      {biayaTunggal != null && (
+                        <div className="flex justify-between py-1"><span className="text-forest-dark/70">Perkiraan biaya</span><b>{rupiah(biayaTunggal)}</b></div>
+                      )}
+                      {!biayaLahanRg && biayaHaRg && (
+                        <p className="text-[11px] text-forest-dark/60">Isi luas lahan untuk melihat biaya lahan Anda.</p>
+                      )}
+                      <p className="mt-1 text-[11px] leading-relaxed text-forest-dark/60">
+                        {hargaRg && <>Harga {fmtRg(hargaRg, "/kg")}</>}
+                        {keb.kemasan ? `${hargaRg ? ", " : ""}${keb.kemasan}` : ""}
+                        {keb.tanggal_harga ? `, ${tanggal(keb.tanggal_harga, { month: "long", year: "numeric" })}` : ""}
+                        {keb.sumber_harga ? `. Sumber: ${keb.sumber_harga}` : ""}
+                        {(hargaRg || keb.kemasan || keb.sumber_harga) && "."} Untuk dosis target di atas; harga di toko tani bisa berbeda.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="py-1 text-sm text-forest-dark/70">Harga {namaJenis.toLowerCase()} belum tersedia.</p>
+                  )}
+                </div>
+                {keb.total_kg == null && <p className="text-xs text-forest-dark/60">Isi luas lahan untuk melihat total kebutuhan.</p>}
+
+                {/* Detail tambahan dari model */}
+                {(alAwal != null || lamaEfek != null || teksturDipakai) && (
+                  <dl className="grid grid-cols-2 gap-2 text-xs">
+                    {alAwal != null && (
+                      <div className="rounded-lg bg-cream p-2">
+                        <dt className="text-forest-dark/60">Aluminium tanah</dt>
+                        <dd className="font-semibold text-forest-dark">
+                          {fmtDosis(alAwal)}{alBaru != null ? ` → ${fmtDosis(alBaru)}` : ""} cmol/kg
+                        </dd>
+                      </div>
+                    )}
+                    {lamaEfek != null && (
+                      <div className="rounded-lg bg-cream p-2">
+                        <dt className="text-forest-dark/60">Efek kapur bertahan</dt>
+                        <dd className="font-semibold text-forest-dark">sekitar {fmtDosis(lamaEfek)} tahun</dd>
+                      </div>
+                    )}
+                    {teksturDipakai && (
+                      <div className="col-span-2 rounded-lg bg-cream p-2">
+                        <dt className="text-forest-dark/60">Tekstur tanah yang dipakai</dt>
+                        <dd className="font-semibold text-forest-dark">
+                          {labelTekstur(teksturDipakai)}
+                          {sumber === "manual" && !tekstur && " (asumsi, karena tidak diisi)"}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
                 )}
-                {keb.total_kg == null && <p className="mt-1 text-xs text-forest-dark/60">Isi luas lahan untuk melihat total kebutuhan.</p>}
               </div>
             )}
           </SectionCard>
@@ -345,9 +459,11 @@ function KapurContent() {
           )}
 
           {catatanLain.length > 0 && (
-            <ul className="list-disc space-y-1 rounded-xl bg-cream p-3 pl-7 text-xs leading-relaxed text-forest-dark/80">
-              {catatanLain.map((c, i) => <li key={i}>{c}</li>)}
-            </ul>
+            <SectionCard title="Catatan untuk Petani">
+              <ul className="list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-forest-dark/80">
+                {catatanLain.map((c, i) => <li key={i}>{c}</li>)}
+              </ul>
+            </SectionCard>
           )}
 
           <p className="flex gap-1.5 text-[11px] leading-relaxed text-forest-dark/60">
@@ -420,7 +536,7 @@ function KapurContent() {
                 <input inputMode="decimal" placeholder="Contoh: 5,2" value={ph} onChange={(e) => setPh(e.target.value)} className={inputCls} />
               </label>
               <label className="block text-xs font-bold text-forest-dark">
-                Tekstur tanah <span className="font-normal text-forest-dark/60">(opsional, membuat dosis lebih tepat)</span>
+                Tekstur tanah <span className="font-normal text-forest-dark/60">(opsional; kalau kosong dianggap tanah lempung)</span>
                 <select value={tekstur} onChange={(e) => setTekstur(e.target.value)} className={inputCls}>
                   <option value="">Tidak tahu / lewati</option>
                   {TEKSTUR_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}

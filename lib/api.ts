@@ -50,6 +50,8 @@ export type DetailKepercayaan = {
   ml_setuju?: boolean;
   peringkat_ml?: number;
   confidence_ml?: number | null; // untuk debugging, tidak ditampilkan
+  tingkat_dasar?: string | null;
+  diturunkan_karena?: string[] | null;
 };
 
 export type Rentang = { min: number; max: number };
@@ -97,7 +99,8 @@ export type RekomendasiItem = {
   musim_tanam_mm?: number | null;
   rincian_skor?: RincianSkor | null;
   skor_per_bulan?: number[] | null; // 12 angka, indeks 0 = mulai tanam Januari; null untuk tanaman tahunan
-  sumber_skor?: "aturan" | "hybrid" | string;
+  sumber_skor?: "aturan" | "hybrid" | "ml" | string;
+  di_luar_rentang_latih?: boolean | null;
   detail_kepercayaan?: DetailKepercayaan | null;
   ekonomi?: Ekonomi | null;
 };
@@ -177,6 +180,7 @@ export type CropDetail = {
     rincian_skor?: RincianSkor | null;
     skor_per_bulan?: number[] | null;
     sumber_skor?: string;
+    di_luar_rentang_latih?: boolean | null;
     detail_kepercayaan?: DetailKepercayaan | null;
   };
   ekonomi?: Ekonomi | null;
@@ -692,12 +696,26 @@ export type SimulasiKapurResponse = {
     dosis_ton_ha: number;
     luas_lahan_m2?: number | null;
     total_kg?: number | null;
-    harga_per_kg?: number | null;
-    perkiraan_biaya?: number | null;
+    harga_per_kg?: number | null; // lama, untuk kompatibilitas
+    perkiraan_biaya?: number | null; // lama, untuk kompatibilitas
+    harga_per_kg_rentang?: { min: number; max: number } | null;
+    perkiraan_biaya_rentang?: { min: number; max: number } | null; // untuk luas lahan pengguna
+    perkiraan_biaya_per_ha_rentang?: { min: number; max: number } | null;
+    sumber_harga?: string | null;
+    tanggal_harga?: string | null;
+    kemasan?: string | null;
   };
   perubahan_skor: PerubahanSkor[] | Record<string, Omit<PerubahanSkor, "id">>;
   rekomendasi_baru?: RekomendasiItem[];
-  detail_ml?: { metode?: string; [key: string]: unknown } | null;
+  detail_ml?: {
+    metode?: string;
+    dosis_penetral_al_ton_ha?: number | null; // kebutuhan MINIMAL untuk menetralkan aluminium
+    al_dd_awal?: number | null;
+    al_dd_baru?: number | null;
+    estimasi_lama_efek_tahun?: number | null;
+    tekstur_dipakai?: string | null;
+    [key: string]: unknown;
+  } | null;
   mode_contoh?: boolean; // true = angka contoh dari BE, bukan hasil model
   catatan?: string[] | string;
 };

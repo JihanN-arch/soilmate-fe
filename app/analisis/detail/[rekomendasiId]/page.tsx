@@ -89,6 +89,8 @@ export default function DetailTanamanPage() {
   const adaInfoTanam = mulaiTanam != null || musimMm != null;
   const skorPerBulan = ring.skor_per_bulan ?? item?.skor_per_bulan ?? null;
   const sumberSkor = ring.sumber_skor ?? item?.sumber_skor;
+  const diLuarRentang = Boolean(ring.di_luar_rentang_latih ?? item?.di_luar_rentang_latih);
+  const alasanTurun = detailKepercayaan?.diturunkan_karena ?? [];
   const ekonomi = detail.ekonomi ?? item?.ekonomi ?? ekonomiFetch?.ekonomi ?? null;
   const tren = detail.tren_harga !== undefined ? normalizeTrenHarga(detail.tren_harga) : ekonomiFetch?.tren ?? [];
   const rekId = Number(params.rekomendasiId);
@@ -255,17 +257,33 @@ export default function DetailTanamanPage() {
 
           <EkonomiCard ekonomi={ekonomi} tren={tren} />
 
-          {detailKepercayaan && (
-            <p className="text-center text-[11px] leading-relaxed text-forest-dark/60">
-              Tingkat keyakinan dihitung dari kualitas data lahan
-              {detailKepercayaan.ml_setuju === true && " dan diperkuat karena model ML memberi peringkat serupa"}
-              {detailKepercayaan.ml_setuju === false && ", dikurangi karena model ML memberi peringkat berbeda"}.
-              {sumberSkor === "hybrid"
-                ? " Skor kesesuaian gabungan dari syarat tumbuh dan model ML."
-                : sumberSkor === "aturan"
-                  ? " Skor kesesuaian dihitung dari syarat tumbuh tanaman."
-                  : ""}
+          {diLuarRentang && (
+            <p className="flex gap-1.5 rounded-xl bg-[#FFF8E8] p-3 text-xs leading-relaxed text-forest-dark">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#C98A1E]" />
+              Kondisi lahan ini jarang ada di data model, hasil kurang pasti.
             </p>
+          )}
+
+          {(detailKepercayaan || sumberSkor) && (
+            <div className="space-y-1 text-center text-[11px] leading-relaxed text-forest-dark/60">
+              <p>
+                Tingkat keyakinan menunjukkan seberapa stabil skor ini kalau data lahan sedikit berubah.
+                {sumberSkor === "ml"
+                  ? " Skor kesesuaian sudah dikoreksi oleh model ML."
+                  : sumberSkor === "hybrid"
+                    ? " Skor kesesuaian gabungan dari syarat tumbuh dan model ML."
+                    : sumberSkor === "aturan"
+                      ? " Skor kesesuaian dihitung dari syarat tumbuh tanaman."
+                      : ""}
+              </p>
+              {alasanTurun.length > 0 && (
+                <p>
+                  Keyakinan diturunkan
+                  {detailKepercayaan?.tingkat_dasar ? ` dari ${detailKepercayaan.tingkat_dasar.toLowerCase()}` : ""} karena:{" "}
+                  {alasanTurun.join("; ")}.
+                </p>
+              )}
+            </div>
           )}
           <button
             onClick={() => setShowFeedback(true)}

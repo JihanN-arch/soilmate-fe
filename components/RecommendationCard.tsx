@@ -9,7 +9,8 @@ type RecommendationCardProps = {
   mulaiTanam?: string | null;
   jumlahPembatas?: number;
   kepercayaan?: string;
-  untungPerHa?: string | null; // sudah diformat, contoh "Rp 8 jt – Rp 12 jt"
+  untungPerHa?: string | null;
+  kurangPasti?: boolean; // sudah diformat, contoh "Rp 8 jt – Rp 12 jt"
   onClick?: () => void;
 };
 
@@ -30,6 +31,7 @@ export default function RecommendationCard({
   jumlahPembatas = 0,
   kepercayaan,
   untungPerHa,
+  kurangPasti,
   onClick,
 }: RecommendationCardProps) {
   return (
@@ -50,7 +52,7 @@ export default function RecommendationCard({
         </span>
         <span className="mt-0.5 block text-xs leading-relaxed text-forest-dark/60">{note}</span>
 
-        {(mulaiTanam || jumlahPembatas > 0 || kepercayaan || untungPerHa != null) && (
+        {(mulaiTanam || jumlahPembatas > 0 || kepercayaan || untungPerHa != null || kurangPasti) && (
           <span className="mt-1.5 flex flex-wrap gap-1.5">
             {mulaiTanam && (
               <span className="inline-flex items-center gap-1 rounded-full bg-cream px-2 py-0.5 text-[10px] font-semibold text-forest-dark">
@@ -65,6 +67,11 @@ export default function RecommendationCard({
             {untungPerHa != null && (
               <span className="inline-flex items-center gap-1 rounded-full bg-[#EEF5E3] px-2 py-0.5 text-[10px] font-semibold text-[#2F4A12]">
                 <Coins className="h-3 w-3" /> Untung {untungPerHa}/ha
+              </span>
+            )}
+            {kurangPasti && (
+              <span className="rounded-full bg-[#FFF1DC] px-2 py-0.5 text-[10px] font-semibold text-[#8A5A00]">
+                Hasil kurang pasti
               </span>
             )}
             {kepercayaan && (
