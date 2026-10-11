@@ -540,7 +540,7 @@ export async function getPrakiraan(lat: number, lon: number): Promise<Prakiraan 
 // Lahan yang ditanam (monitoring)
 // ============================================================
 
-export type Kesehatan = "belum_cukup_data" | "baik" | "perlu_dicek" | string;
+export type Kesehatan = "dijadwalkan" | "belum_cukup_data" | "baik" | "perlu_dicek" | string;
 export type Peringatan = { jenis: string; tingkat?: string; pesan: string };
 export type ObservasiNdvi = { tanggal: string; ndvi: number };
 
@@ -559,7 +559,11 @@ export type Lahan = {
   observasi: ObservasiNdvi[];
   cuaca?: Prakiraan | null;
   terakhir_dipantau?: string | null;
-  hari_setelah_tanam?: number | null;
+  hari_setelah_tanam?: number | null; // null kalau tanggal tanam belum tiba
+  hari_menuju_tanam?: number | null; // untuk status "dijadwalkan"
+  pesan_status?: string | null; // keterangan status dari BE, tampilkan apa adanya
+  grafik_siap?: boolean | null; // grafik NDVI hanya ditampilkan kalau true
+  jumlah_citra_setelah_tanam?: number | null;
   luas_lahan_m2?: number | null;
   raw: any;
 };
@@ -588,6 +592,10 @@ export function normalizeLahan(r: any): Lahan {
     cuaca: r.cuaca ? normalizePrakiraan(r.cuaca) : null,
     terakhir_dipantau: r.terakhir_dipantau ?? r.diperbarui_pada ?? r.updated_at ?? null,
     hari_setelah_tanam: typeof r.hari_setelah_tanam === "number" ? r.hari_setelah_tanam : null,
+    hari_menuju_tanam: typeof r.hari_menuju_tanam === "number" ? r.hari_menuju_tanam : null,
+    pesan_status: typeof r.pesan_status === "string" && r.pesan_status ? r.pesan_status : null,
+    grafik_siap: typeof r.grafik_siap === "boolean" ? r.grafik_siap : null,
+    jumlah_citra_setelah_tanam: typeof r.jumlah_citra_setelah_tanam === "number" ? r.jumlah_citra_setelah_tanam : null,
     luas_lahan_m2: typeof r.luas_lahan_m2 === "number" ? r.luas_lahan_m2 : null,
     raw: r,
   };

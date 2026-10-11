@@ -33,3 +33,17 @@ export function hariIniISO(): string {
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
   return d.toISOString().slice(0, 10);
 }
+
+// Teks umur tanaman dari field BE; cadangan dihitung dari tanggal tanam.
+export function teksUmurTanam(l: {
+  tanggal_tanam: string;
+  hari_setelah_tanam?: number | null;
+  hari_menuju_tanam?: number | null;
+}): string | null {
+  if (typeof l.hari_menuju_tanam === "number" && l.hari_menuju_tanam > 0)
+    return `${l.hari_menuju_tanam} hari lagi menuju tanam`;
+  if (typeof l.hari_setelah_tanam === "number") return `Hari ke-${l.hari_setelah_tanam + 1} setelah tanam`;
+  const h = hariSejak(l.tanggal_tanam);
+  if (h == null) return null;
+  return h >= 0 ? `Hari ke-${h + 1} setelah tanam` : `${-h} hari lagi menuju tanam`;
+}

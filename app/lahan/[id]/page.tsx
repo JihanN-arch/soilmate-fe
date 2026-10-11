@@ -14,7 +14,7 @@ import FeedbackForm from "@/components/FeedbackForm";
 import Modal from "@/components/Modal";
 import { deleteLahan, getCropImage, getLahan, getPrakiraan, Lahan, pantauLahan, patchLahan, Prakiraan } from "@/lib/api";
 import { getAnonymousId } from "@/lib/anonymousId";
-import { hariSejak, tanggal } from "@/lib/format";
+import { tanggal, teksUmurTanam } from "@/lib/format";
 import { logEvent } from "@/lib/usability";
 
 function warnaPeringatan(tingkat?: string) {
@@ -109,7 +109,8 @@ function LahanContent() {
       </div>
     );
 
-  const umur = lahan.hari_setelah_tanam ?? hariSejak(lahan.tanggal_tanam);
+  const umurTeks = teksUmurTanam(lahan);
+  const dijadwalkan = lahan.kesehatan === "dijadwalkan";
   const LABEL_STATUS: Record<string, string> = { panen: "Sudah panen", gagal: "Gagal panen", dihentikan: "Dihentikan" };
   const aktif = lahan.status === "aktif";
   const obs = lahan.observasi;
@@ -151,7 +152,7 @@ function LahanContent() {
           )}
           <p className="mt-1 flex items-center gap-1 text-xs opacity-90">
             <CalendarDays className="h-3 w-3" /> Ditanam {tanggal(lahan.tanggal_tanam)}
-            {umur != null && (umur >= 0 ? ` (${umur} hari)` : ` (${-umur} hari lagi)`)}
+            {umurTeks && ` · ${umurTeks}`}
           </p>
           {!aktif && (
             <span className="mt-1 inline-block rounded-full bg-sand px-2 py-0.5 text-[10px] font-semibold text-forest-dark">
@@ -163,8 +164,11 @@ function LahanContent() {
 
       {/* Kesehatan */}
       <SectionCard title="Kondisi Tanaman" className="mx-4 mt-5">
-        <div className="mb-3 flex justify-center">
+        <div className="mb-3 flex flex-col items-center gap-2 text-center">
           <KesehatanBadge kesehatan={lahan.kesehatan} />
+          {lahan.pesan_status && (
+            <p className="text-xs leading-relaxed text-forest-dark/80">{lahan.pesan_status}</p>
+          )}
         </div>
 
         {lahan.peringatan.length > 0 && (
@@ -177,7 +181,8 @@ function LahanContent() {
           </ul>
         )}
 
-        {obs.length >= 2 ? (
+        {/* Grafik hanya kalau BE menyatakan siap; cadangan untuk respons lama: minimal 2 titik */}
+        {(lahan.grafik_siap ?? obs.length >= 2) && obs.length >= 2 ? (
           <>
             <div className="mb-1 flex items-baseline justify-between text-xs">
               <span className="font-semibold text-forest-dark/70">Kehijauan tanaman (NDVI)</span>
@@ -195,14 +200,18 @@ function LahanContent() {
             <p className="mt-1 text-[11px] leading-relaxed text-forest-dark/60">
               Garis naik berarti tanaman makin hijau dan tumbuh. Titik sebelum garis &quot;tanam&quot; adalah kondisi lahan
               sebelum ditanam, sebagai pembanding. Penurunan tajam bisa berarti kekeringan, hama, atau sudah dipanen.
+              {typeof lahan.jumlah_citra_setelah_tanam === "number" &&
+                ` Sudah ada ${lahan.jumlah_citra_setelah_tanam} citra satelit sejak tanam.`}
             </p>
           </>
         ) : (
-          <p className="rounded-xl bg-cream p-3 text-xs leading-relaxed text-forest-dark/70">
-            {obs.length === 1
-              ? `Baru ada 1 data satelit (NDVI ${obs[0].ndvi.toFixed(2)}). Grafik muncul setelah ada 2 data.`
-              : "Belum ada data satelit. Satelit melintas tiap beberapa hari dan bisa terhalang awan."}
-          </p>
+          !lahan.pesan_status && (
+            <p className="rounded-xl bg-cream p-3 text-xs leading-relaxed text-forest-dark/70">
+              {dijadwalkan
+                ? "Pemantauan dimulai setelah tanggal tanam."
+                : "Belum ada data satelit. Satelit melintas tiap beberapa hari dan bisa terhalang awan."}
+            </p>
+          )
         )}
 
         {aktif && (
